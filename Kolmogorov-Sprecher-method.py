@@ -42,7 +42,7 @@ class Psi_generator:
             y = self.y_step * i
             while (j+1 < len(self.interp_list)) and (self.interp_list[j+1][1] <= y):
                 j += 1
-            self.interval_index_for_y.append[j]
+            self.interval_index_for_y.append(j)
 
     def lin_interp_psi_k(self, x):
         j = math.floor(x * self.g**(self.k-1))
@@ -234,7 +234,10 @@ class Psi_generator:
 
         return i_f, backward_i_f, F_max
 
-    def backward_psi_k(self, y, eps = self.g**-(k+1)):
+    def backward_psi_k(self, y, eps=-1):
+        if eps <= 0:
+            eps = self.g**-(self.k+1)
+
         if y > 1-10**-13:
             return 1
         i = math.floor(y/self.y_step)
@@ -246,16 +249,60 @@ class Psi_generator:
                 j2 = j_
             else:
                 j1 = j_
-        
+
         if (j1 % 2 == 0):
             x0, y0 = self.interp_list[j1]
             return x0 + (y-y0)/self.B
         else:
-            # x8, y8 = self.interp_list[j1]
-            # x10, y10 = self.interp_list[j2]
-            # NOTE: надо взять настоящие границы интервала интегрированной "шапочки", потомучто она дполнена линейным куском
-            ksi_0 = 
-            
+            x8, y8 = self.interp_list[j1]
+            x10, y10 = self.interp_list[j2]
+            # вызываем, чтобы гарантированно вычислить коэффициенты
+            self.interpolated_psi_k_prime2((x8 + x10)/2)
+            a, b, A, C = self.dict_param[(x8, x10)]
+            x8_ = b-a
+            x10_ = b+a
+            y8_ = y8+(x8_-x8)*self.B
+            y10_ = y10-(x10-x10_)*self.B
+            if y < y8_ - 10**-13:
+                # на нижнем линейном участке
+                return x8 + (y8_ - y8)/self.B
+            elif y > y10_ + 10**-13:
+                # на верхнем линейном участке
+                return x10 - (y8 - y8_)/self.B
+            else:
+                # на сигмоиде
+                return x8_ + self.backward_ihat(y-y8_, a, A, eps)
+
+    def backward_ihat_wo_b(self, eta, a, A):
+        eta1 = eta/(A*a)
+        ksi1 = 1 + self.back_i_stand_hat(eta1)
+        ksi = ksi1 * a
+        return ksi
+
+    def backward_ihat(self, eta, a, A, eps):
+        ksi_0 = 0
+        if eta <= A*a*self.stand_norm:
+            ksi_0 = self.backward_ihat_wo_b(eta, a, A)
+        else:
+            ksi_0 = 2*a
+        b = a
+        C = self.B*a + A*a*self.stand_norm/2
+
+        def F(ksi):
+            return self.ihat(ksi, A, a, self.B, b, C)
+
+        def f(ksi):
+            return self.hat_with_all_agrs(ksi, A, a, self.B, b, C)
+
+        ksi = ksi_0
+        while abs(F(ksi) + self.B * ksi - eta) > eps:
+            ksi = (ksi + (eta-F(ksi))/f(ksi)) / (1 + (self.B/f(ksi)))
+            ksi = max(0, ksi)
+            ksi = min(2*a, ksi)
+
+        return ksi
+
+
 
 
     def integral(self, x_min, x_max, f, step):
