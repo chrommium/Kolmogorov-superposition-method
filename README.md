@@ -7,11 +7,11 @@ Solver for different partial differential equations
 ![](./pictures/inerpolation_of_Sprecher_func.png)
 
 
-###  Backward function to sigmoid interpolated Sprecher function
+###  Backward function to the sigmoid interpolated Sprecher function
 ![](./pictures/backward_of_interpolated_Sprecher_func.png)
 
 
-### Derives of the Sprecher function inerpoliations
+### Derives of the interpolated Sprecher function
 | sigmoid | linear |
 | --- | --- |
 | ![](./pictures/derives_of_interpolated_Sprecher_func.png) | ![](./pictures/derives_of_Sprecher_func.png) |
