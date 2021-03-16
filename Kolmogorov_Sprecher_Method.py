@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 
 class Psi_generator:
-    def __init__(self, n=2, g=10, k=4):
+    def __init__(self, n=2, g=10, k=4, backward_eps = 10**-7):
         self.n = n
         self.g = g
         self.k = k
@@ -24,6 +24,7 @@ class Psi_generator:
         self.stand_norm = self.i_stand_hat(1)
         self.delta_x = self.g**-k
         self.y_step = self.g**-(k+1)
+        self.backward_eps = backward_eps
         self.interval_index_for_y = [0]
 
         for i in range(self.g**(k-1)):
@@ -40,7 +41,7 @@ class Psi_generator:
         j = 0
         for i in range(1, math.ceil(1/self.y_step) + 1):
             y = self.y_step * i
-            while (j+1 < len(self.interp_list)) and (self.interp_list[j+1][1] <= y):
+            while (j+1 < len(self.interp_list)) and (self.interp_list[j+1][1] <= y + 10**-13):
                 j += 1
             self.interval_index_for_y.append(j)
 
@@ -114,12 +115,18 @@ class Psi_generator:
         return self.hat_with_b(x, A, a, B, b)
 
     def interpolated_psi_k(self, x):
-        return self.interpolated_psi_k_all(x, self.linear, self.ihat)
+        whole_part = math.floor(x)
+        x -= whole_part
+        return whole_part + self.interpolated_psi_k_all(x, self.linear, self.ihat)
 
     def interpolated_psi_k_prime(self, x):
+        whole_part = math.floor(x)
+        x -= whole_part
         return self.interpolated_psi_k_all(x, self.const, self.hat_with_all_agrs)
 
     def interpolated_psi_k_prime2(self, x):
+        whole_part = math.floor(x)
+        x -= whole_part
         return self.interpolated_psi_k_all(x, self.zero, self.hat_prime)
 
     def lin_interpolated_psi_k_prime(self, x, delta_x):
@@ -198,9 +205,9 @@ class Psi_generator:
         F_max = F_arr[N]
 
         def i_f(x):
-            if x <= x_min:
+            if x <= x_min + 10**-13:
                 return 0
-            if x >= x_max:
+            if x >= x_max - 10**-13:
                 return F_arr[N]
             i = (x - x_min) / step
             i = math.floor(i)
@@ -236,22 +243,27 @@ class Psi_generator:
 
     def backward_psi_k(self, y, eps=-1):
         if eps <= 0:
-            eps = self.g**-(self.k+2)
+            eps = self.backward_eps
 
+        whole_part = math.floor(y)
+        y -= whole_part
+        return self.backward_psi_k_impl(y, eps) + whole_part
+
+    def backward_psi_k_impl(self, y, eps=-1):
+        if eps <= 0:
+            eps = self.g**-(self.k+2)
+        
         if y > 1-10**-13:
             return 1
         i = math.floor(y/self.y_step)
         j1 = self.interval_index_for_y[i]
-        j2 = self.interval_index_for_y[i+1]
-        if j1 == j2:
-            j2 += 1
-        else:
-            while (j2 - j1 > 1):
-                j_ = (j2 + j1) // 2
-                if (self.interp_list[j_][1] >= y):
-                    j2 = j_
-                else:
-                    j1 = j_
+        j2 = self.interval_index_for_y[i+1]+1
+        while (j2 - j1 > 1):
+            j_ = (j2 + j1) // 2
+            if (self.interp_list[j_][1] >= y):
+                j2 = j_
+            else:
+                j1 = j_
 
         if (j1 % 2 == 0):
             x0, y0 = self.interp_list[j1]
@@ -596,45 +608,45 @@ def sq1(x):
 # _, a, b, A, C = ihd(ksi)
 
 
-gen2 = Psi_generator(k=3)
-# ihat = gen2.generate_ihat(3, 2, 0.25, 0.25, 5)
-# print(gen2.interpolated_psi_k(0.07))
-# print(gen2.psi_k(0.08))
-print('here')
-start = 8000
-end = 11000
-g_ = 10 ** - 5
-array2 = [gen2.interpolated_psi_k(i*(g_)) for i in range(start, end)]
-array2_lin = [gen2.lin_interp_psi_k(i*(g_)) for i in range(start, end)]
-array22 = [gen2.psi_k(i*(g_)) for i in range(start, end)]
-# array222 = [gen2.interpolated_psi_k_prime(i*(g_)) * 0.01 for i in range(start, end)]
-# array2222 = [gen2.interpolated_psi_k_prime2(i*(g_)) * 0.0001 for i in range(start, end)]
-array_1 = [gen2.interpolated_psi_k_prime(i*(g_)) for i in range(start, end)]
-array_11 = [gen2.interpolated_psi_k_prime2(i*(g_)) * 0.01 for i in range(start, end)]
-array_1_lin = [gen2.lin_interpolated_psi_k_prime(i*(g_), 10**-3) for i in range(start, end)]
-array_11_lin = [gen2.lin_interpolated_psi_k_prime2(i*(g_), 10**-3) * 0.01 for i in range(start, end)]
+# gen2 = Psi_generator(k=3)
+# # ihat = gen2.generate_ihat(3, 2, 0.25, 0.25, 5)
+# # print(gen2.interpolated_psi_k(0.07))
+# # print(gen2.psi_k(0.08))
+# print('here')
+# start = 8000
+# end = 11000
+# g_ = 10 ** - 5
+# array2 = [gen2.interpolated_psi_k(i*(g_)) for i in range(start, end)]
+# array2_lin = [gen2.lin_interp_psi_k(i*(g_)) for i in range(start, end)]
+# array22 = [gen2.psi_k(i*(g_)) for i in range(start, end)]
+# # array222 = [gen2.interpolated_psi_k_prime(i*(g_)) * 0.01 for i in range(start, end)]
+# # array2222 = [gen2.interpolated_psi_k_prime2(i*(g_)) * 0.0001 for i in range(start, end)]
+# array_1 = [gen2.interpolated_psi_k_prime(i*(g_)) for i in range(start, end)]
+# array_11 = [gen2.interpolated_psi_k_prime2(i*(g_)) * 0.01 for i in range(start, end)]
+# array_1_lin = [gen2.lin_interpolated_psi_k_prime(i*(g_), 10**-3) for i in range(start, end)]
+# array_11_lin = [gen2.lin_interpolated_psi_k_prime2(i*(g_), 10**-3) * 0.01 for i in range(start, end)]
 
-# array_back = [gen2.back_i_stand_hat(gen2.F_max*i*0.001) for i in range(0, 1001)]
-# array_back2 = [(i*0.001) for i in range(0, math.ceil(gen2.F_max*1100))]
-# print(gen2.F_max)
-# print(array_back2)
-# plt.plot([gen2.F_max*i*0.001 for i in range(0, 1001)], array_back, label='back to hat') # без наклона
+# # array_back = [gen2.back_i_stand_hat(gen2.F_max*i*0.001) for i in range(0, 1001)]
+# # array_back2 = [(i*0.001) for i in range(0, math.ceil(gen2.F_max*1100))]
+# # print(gen2.F_max)
+# # print(array_back2)
+# # plt.plot([gen2.F_max*i*0.001 for i in range(0, 1001)], array_back, label='back to hat') # без наклона
+# # plt.show()
+
+
+# x_ax = [i*(g_) for i in range(start, end)]
+# plt.plot(x_ax, array22, label='psi, k = 3')
+# plt.plot(x_ax, array2, label='interp psi, k = 3')
+# plt.plot(x_ax, array2_lin, label='linear interp psi, k = 3')
+# plt.legend()
 # plt.show()
 
+# plt.plot(x_ax, array_1, label='interp psi prime, k = 3')
+# plt.plot(x_ax, array_11, label='interp psi prime2, k = 3')
+# plt.legend()
+# plt.show()
 
-x_ax = [i*(g_) for i in range(start, end)]
-plt.plot(x_ax, array22, label='psi, k = 3')
-plt.plot(x_ax, array2, label='interp psi, k = 3')
-plt.plot(x_ax, array2_lin, label='linear interp psi, k = 3')
-plt.legend()
-plt.show()
-
-plt.plot(x_ax, array_1, label='interp psi prime, k = 3')
-plt.plot(x_ax, array_11, label='interp psi prime2, k = 3')
-plt.legend()
-plt.show()
-
-plt.plot(x_ax, array_1_lin, label='lin interp psi prime, k = 3, delta_x = 10**-3')
-plt.plot(x_ax, array_11_lin, label='lin interp psi prime2, k = 3, delta_x = 10**-3')
-plt.legend()
-plt.show()
+# plt.plot(x_ax, array_1_lin, label='lin interp psi prime, k = 3, delta_x = 10**-3')
+# plt.plot(x_ax, array_11_lin, label='lin interp psi prime2, k = 3, delta_x = 10**-3')
+# plt.legend()
+# plt.show()
