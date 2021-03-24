@@ -1,6 +1,7 @@
 from Kolmogorov_Sprecher_Method import Psi_generator
 import math
 import matplotlib.pyplot as plt
+from RK4 import Solver_RK4
 
 alpha1 = 0.5
 alpha2 = 0.5
@@ -78,6 +79,19 @@ def x_high(z):
 def I_g_wo_phi(z):
     f = lambda x: g_wo_phi(x,z,gen)
     return I_from_func(f, x_low(z), x_high(z), gen.g**(-gen.k))
+
+def I_g_wo_phi_prime(z):
+    f = lambda x: g_wo_phi_prime(x,z,gen)
+    return I_from_func(f, x_low(z), x_high(z), gen.g**(-gen.k))
+
+def I_f_func(z):
+    f = lambda x: f_func(x,z,gen)
+    return I_from_func(f, x_low(z), x_high(z), gen.g**(-gen.k))
+
+
+# def ffunc(x, y):
+#     return y**2/x
+# sol = Solver_RK4(f=ffunc, x0=2, x_left=1, x_right=3, y_left=-1, y_right=-0.5, step=0.05)
 
 
 # def generate_phi_from_y(x, gen):

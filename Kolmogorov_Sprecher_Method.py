@@ -319,7 +319,8 @@ class Psi_generator:
         ser_len = 4
         newton_works = True
         def dscrp(ksi):
-            return F(ksi) + self.B * ksi - eta 
+            # return F(ksi) + self.B * ksi - eta 
+            return F(ksi) - eta 
 
         while abs(dscrp(ksi)) > eps:
             ksi = (ksi + (eta-F(ksi))/f(ksi)) / (1 + (self.B/f(ksi)))
