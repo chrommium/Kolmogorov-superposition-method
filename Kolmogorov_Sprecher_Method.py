@@ -305,7 +305,7 @@ class Psi_generator:
         C = self.B*a + A*a*self.stand_norm/2
 
         def F(ksi):
-            return self.ihat(ksi, A, a, self.B, b, C)
+            return self.ihat(ksi, A, a, self.B, b, C) - self.B*ksi
 
         def f(ksi):
             return self.hat_with_all_agrs(ksi, A, a, self.B, b, C)
@@ -319,8 +319,8 @@ class Psi_generator:
         ser_len = 4
         newton_works = True
         def dscrp(ksi):
-            # return F(ksi) + self.B * ksi - eta 
-            return F(ksi) - eta 
+            return F(ksi) + self.B * ksi - eta 
+            # return F(ksi) - eta 
 
         while abs(dscrp(ksi)) > eps:
             ksi = (ksi + (eta-F(ksi))/f(ksi)) / (1 + (self.B/f(ksi)))

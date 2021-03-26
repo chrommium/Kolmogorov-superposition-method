@@ -46,15 +46,47 @@ def f_func(x,z, gen):
     return math.sin(math.pi*x) * math.sin(math.pi*y(x,z,gen))
 
 # tested
-def I_from_func(f, x_min, x_max, step):
+# def I_from_func(f, x_min, x_max, step):
+#     if x_max - x_min < step:
+#         return (x_max - x_min) * (f(x_min) + f(x_max)) / 2
+#     N = math.ceil((x_max - x_min) / step)
+#     step = (x_max - x_min) / N
+#     res = f(x_min) * step / 2
+#     for i in range(1, N):
+#         res += f(x_min+i*step) * step
+#     res += f(x_max) * step / 2
+#     return res
+
+ # def I_from_func_adap(f, x_min, x_max, min_step):
+def I_from_func(f, x_min, x_max, min_step):
+    step = min_step
+    p = 1 # степень 2: во сколько раз понижен шаг
     if x_max - x_min < step:
         return (x_max - x_min) * (f(x_min) + f(x_max)) / 2
-    N = math.ceil((x_max - x_min) / step)
-    step = (x_max - x_min) / N
-    res = f(x_min) * step / 2
-    for i in range(1, N):
-        res += f(x_min+i*step) * step
-    res += f(x_max) * step / 2
+    res = 0
+    x = x_min
+    y1 = 0
+    y2 = 0
+    new_step = step
+    while x + step <= x_max + 10**-13:
+        
+        step_not_found = True
+        step = new_step
+        while step_not_found:
+            y1 = f(x)
+            y2 = f(x + step)
+            y_m = max(abs(y1), abs(y2))
+            # step = min(min_step/y_m, min_step)
+            p = math.ceil(math.log2(y_m))
+            new_step = min_step * 2**-p
+            step = min(new_step, step)
+            if step <= new_step + 10**-13:
+                step_not_found = False
+
+        res += (y1 + y2) * step / 2
+    y1 = y2
+    y2 = f(x_max)
+    res += (y1+y2)*(x_max-x)/2
     return res
 
 def x_low(z):
@@ -153,19 +185,19 @@ class Euler_1:
             print(i)
 
 
-# eul_1 = Euler_1(0.05, 2*10**-2)
-# eul_1
-# plt.plot(eul_1.h[:70])
-# plt.show()
-# plt.plot(eul_1.I_f_arr, label='I_f')
-# plt.legend()
-# plt.show()
-# plt.plot(eul_1.I_g_arr, label='I_g')
-# plt.legend()
-# plt.show()
-# plt.plot(eul_1.I_g_prime_arr[:50], label='I_g_prime')
-# plt.legend()
-# plt.show()
+eul_1 = Euler_1(0.05, 2*10**-2)
+eul_1
+plt.plot(eul_1.h[:70])
+plt.show()
+plt.plot(eul_1.I_f_arr, label='I_f')
+plt.legend()
+plt.show()
+plt.plot(eul_1.I_g_arr, label='I_g')
+plt.legend()
+plt.show()
+plt.plot(eul_1.I_g_prime_arr[:50], label='I_g_prime')
+plt.legend()
+plt.show()
 
 # x_arr = [i for i in range(0,1000)]
 # x_low_arr = [x_low(i*10**-3) for i in x_arr]
@@ -177,7 +209,7 @@ class Euler_1:
 # plt.show()
 
 
-# # x_arr = [i for i in range(9500,10500)]
+# x_arr = [i for i in range(9500,10500)]
 # x_arr = [i*10**-3 for i in range(0,1000)]
 # g_wo_phi_array = [g_wo_phi(i, 0.1, gen) for i in x_arr]
 # g_wo_phi_prime_array = [g_wo_phi_prime(i, 0.1, gen) for i in x_arr]
@@ -190,7 +222,9 @@ class Euler_1:
 # plt.show()
 
 
-z_arr = [i*10**-9 for i in range(5743000,5745000)]
+# z_arr = [i*10**-9 for i in range(5743000,5745000)]
+# z_arr = [i*10**-7 for i in range(840500,841500)]
+z_arr = [i*10**-7 for i in range(858000,859000)]
 g_arr = [g_wo_phi(0.484, i, gen) for i in z_arr]
 g_prime_arr = [g_wo_phi_prime(i, 0.96, gen) for i in z_arr]
 # phi_arr = [phi_from_y(i, 0.96, gen) for i in z_arr]
