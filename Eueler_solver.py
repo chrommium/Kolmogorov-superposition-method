@@ -59,41 +59,6 @@ def I_from_func(f, x_min, x_max, step):
     res += f(x_max) * step / 2
     return res
 
-# def I_from_func_adap(f, x_min, x_max, max_step):
-# # def I_from_func(f, x_min, x_max, max_step):
-#     step = max_step
-#     p = 1 # степень 2: во сколько раз понижен шаг
-#     if x_max - x_min < step:
-#         return (x_max - x_min) * (f(x_min) + f(x_max)) / 2
-#     res = 0
-#     x = x_min
-#     y1 = 0
-#     y2 = 0
-#     new_step = step
-#     while x + step <= x_max + 10**-13:
-        
-#         step_not_found = True
-#         step = new_step
-#         y1 = f(x)
-
-#         while step_not_found:
-#             y2 = f(x + step)
-#             y_m = max(abs(y1), abs(y2)) + 10**-13
-#             # step = min(max_step/y_m, max_step)
-#             p = math.ceil(math.log10(y_m*step))
-#             p = max(0, p)
-#             new_step = max_step * 10**-p
-#             step = min(new_step, step)
-#             if step <= new_step + 10**-13:
-#                 step_not_found = False
-#                 y2 = f(x + step)
-        
-#         x +=step 
-#         res += (y1 + y2) * step / 2
-#     y1 = y2
-#     y2 = f(x_max)
-#     res += (y1+y2)*(x_max-x)/2
-#     return res
 
 def I_Simpson_10(f, x_min, x_max):
     res = f(x_min) + f(x_min)
@@ -104,6 +69,7 @@ def I_Simpson_10(f, x_min, x_max):
         res += 4*f(x_min + step*i)
     return res * (x_max - x_min) / 30
 
+
 def I_Simpson_iter(f, x_min, x_max, eps_abs, eps_rel):
     I_1 = I_Simpson_10(f, x_min, x_max)
     I_2 = I_Simpson_10(f, x_min, (x_min + x_max)/2) + I_Simpson_10(f, (x_min + x_max)/2, x_max)
@@ -111,6 +77,7 @@ def I_Simpson_iter(f, x_min, x_max, eps_abs, eps_rel):
         return I_2    
     return I_Simpson_iter(f, x_min, (x_min + x_max)/2, eps_abs, eps_rel) + \
             I_Simpson_iter(f, (x_min + x_max)/2, x_max, eps_abs, eps_rel)
+
 
 def I_from_func_adap(f, x_min, x_max, step, eps_abs=10**-3, eps_rel=10**-3):
     big_step = step * 10
@@ -124,87 +91,73 @@ def I_from_func_adap(f, x_min, x_max, step, eps_abs=10**-3, eps_rel=10**-3):
     return res
 
 
-# def f_test(x):
-#     x0 = math.pi
-#     sigma = 10**-6
-#     return 1 / (((2*math.pi)**0.5)*sigma) * math.exp(-((x-x0)**2)/(2*sigma**2))
-
-# def f_test_2(x):
-#     c = 3*10**-9
-#     x0 = 0.509089688889999
-#     return 1/(math.pi * (1+((x-x0)/c)**2) * c)
-
-# ABC_1 = I_from_func_adap(f_test, 0, 10, 10**-4, 10**-4, 10**-4)
-# # ABC_1 = I_Simpson_iter(lambda x: x**3, 0, 10, 10**-4, 10**-4)
-# # ABC_1 = I_Simpson_iter(f_test, 0, 10, 10**-4, 10**-4)
-# # print('I_from_func_adapt = ' + str(ABC))
-# print('I_from_func = ' + str(ABC_1))
-
-
 def x_low(z):
     if z < alpha2:
         return 0
     return gen.backward_psi_k((z-alpha2)/alpha1)
+
 
 def x_high(z):
     if z < alpha1:
         return gen.backward_psi_k(z/alpha1)
     return 1
 
+
 def I_g_wo_phi(z):
     f = lambda x: g_wo_phi(x,z,gen)
     return I_from_func_adap(f, x_low(z), x_high(z), 10**-2) #gen.g**(-gen.k-1)
 
+
 def I_g_wo_phi_prime(z):
     f = lambda x: g_wo_phi_prime(x,z,gen)
     return I_from_func_adap(f, x_low(z), x_high(z), 10**-2) #gen.g**(-gen.k-1)
+
 
 def I_f_func(z):
     f = lambda x: f_func(x,z,gen)
     return I_from_func_adap(f, x_low(z), x_high(z), 10**-2) #gen.g**(-gen.k-1)
 
 
-class Euler:
-    '''метод Эйлера для phi(z)'''
-    def __init__(self, phi_prime_0, step):
-        self.step = step
-        self.N = math.ceil((alpha1 + alpha2) / step)
-        self.step = (alpha1 + alpha2) /self.N
-        self.phi = [0, phi_prime_0*step]
-        self.I_f_arr = []
-        self.I_g_arr = []
-        self.I_g_prime_arr = []
-        # z = step # значение аргумента
-        # n = 1 # номер ячейки в массиве, соответсвующей аргументы z
-        tau = self.step
-        for i in range(1, self.N-1):
-            z = i*self.step
-            I_f = I_f_func(z)
-            I_g = I_g_wo_phi(z)
-            I_g_prime = I_g_wo_phi_prime(z)
-            A_1 = (I_g_prime / (2 * tau)) - (I_g / tau**2)
-            B_1 = 2 * I_g / tau**2
-            C_1 = (I_g / tau**2) + (I_g_prime / (2 * tau))
-            numerator = I_f + self.phi[i]*B_1 + self.phi[i-1]*A_1
-            self.phi.append(numerator/C_1)
-            self.I_f_arr.append(I_f)
-            self.I_g_arr.append(I_g)
-            self.I_g_prime_arr.append(I_g_prime)
-            print(i)
+#----------------------------------------------------------------------------------------------------------------------------
+a = 1/30
 
-# eul = Euler(0.05, 10**-2)
-# eul
-# plt.plot(eul.phi[:50])
-# plt.show()
-# plt.plot(eul.I_f_arr, label='I_f')
-# plt.legend()
-# plt.show()
-# plt.plot(eul.I_g_arr, label='I_g')
-# plt.legend()
-# plt.show()
-# # plt.plot(eul.I_g_prime_arr[:50], label='I_g_prime')
-# # plt.legend()
-# # plt.show()
+def z_i(x, y, i, gen):
+    return alpha1 * gen.interpolated_psi_k(x+a*i) + alpha2 * gen.interpolated_psi_k(y+a*i)
+
+
+def y_multi_dim(x, z_i, i, gen):
+    return gen.backward_psi_k((z_i - alpha1*gen.interpolated_psi_k(x+a*i)) / alpha2) - i*a
+
+
+def z_l(x, z_q, l, q, gen):
+    return z_i(x, y_multi_dim(x, z_q, q, gen), l, gen)
+
+
+def dzl_dzq(x,z_q, l, q, gen):
+    return alpha2*gen.interpolated_psi_k_prime(y_multi_dim(x, z_q, q, gen) + l*a) / r_multi_dim(x, z_q, q, gen)
+
+
+def r_multi_dim(x, z_q, q, gen):
+    return alpha2*gen.interpolated_psi_k_prime( y_multi_dim(x,z_q, q, gen) )
+
+
+def B(x, z_q, q, l, gen):
+    y_arg = y_multi_dim(x, z_q, q, gen)
+    x_q_term = alpha1*gen.interpolated_psi_k_prime(x + q*a)
+    x_l_term = alpha1*gen.interpolated_psi_k_prime(x + l*a)
+    y_q_term = alpha2*gen.interpolated_psi_k_prime(y_arg + q*a)
+    y_l_term = alpha2*gen.interpolated_psi_k_prime(y_arg + l*a)
+    return x_q_term*x_l_term + y_q_term*y_l_term
+
+
+def dB_dzq(x, z_q, q, l, gen):
+    y_arg = y_multi_dim(x, z_q, q, gen)
+    y_prime_q_term = alpha2*gen.interpolated_psi_k_prime(y_arg + q*a)
+    y_prime_l_term = alpha2*gen.interpolated_psi_k_prime(y_arg + l*a)
+    y_prime2_q_term = alpha2*gen.interpolated_psi_k_prime2(y_arg + q*a)
+    y_prime2_l_term = alpha2*gen.interpolated_psi_k_prime2(y_arg + l*a)
+    return (y_prime_q_term*y_prime2_l_term + y_prime2_q_term*y_prime_l_term) / r_multi_dim(x, z_q, q, gen)
+
 
 class Euler_1:
     '''метод Эйлера для phi(z)'''
@@ -290,21 +243,53 @@ class Euler_1:
         self.I_g_prime_arr = pd.read_csv('I_g_prime'+pref+'.csv').iloc[:,1]
         # return I_f_arr, I_g_arr, I_g_prime_arr
         
+# plot z
+num_lines = 20
+x_array = [i*10**-2 for i in range(100)]
+for i in range(num_lines):
+    z_i = i* (alpha1 + alpha2) / num_lines 
+    x_i_array = []
+    y_i_array = []
+    for k in range(100):
+        y_k = y(x_array[k], z_i, gen)
+        if y_k >= 0 and y_k <= 1:
+            x_i_array.append(x_array[k])
+            y_i_array.append(y_k)
+    plt.plot(x_i_array, y_i_array, label=str(z_i))
+# plt.legend()
+plt.show()
 
-eul_1 = Euler_1(0.05, 10**-2)
-# eul_1.calc_integrals()
-# eul_1.save_integrals(pref = "2")
-eul_1.load_integrals(pref = "2")
+# z plot
+num_lines = 20
+x_array = [i*10**-2 for i in range(100)]
+for i in range(num_lines):
+    z_i = i* (alpha1 + alpha2) / num_lines 
+    x_i_array = []
+    z_i_array = []
+    for k in range(100):
+        y_k = y(x_array[k], z_i, gen)
+        if y_k >= 0 and y_k <= 1:
+            x_i_array.append(x_array[k])
+            z_i_array.append(z_i)
+    plt.plot(x_i_array, z_i_array, label=str(z_i))
+# plt.legend()
+plt.show()
 
-plt.plot(eul_1.I_f_arr, label='I_f')
-plt.legend()
-plt.show()
-plt.plot(eul_1.I_g_arr, label='I_g')
-plt.legend()
-plt.show()
-plt.plot(eul_1.I_g_prime_arr, label='I_g_prime')
-plt.legend()
-plt.show()
+
+# eul_1 = Euler_1(0.05, 10**-2)
+# # eul_1.calc_integrals()
+# # eul_1.save_integrals(pref = "2")
+# eul_1.load_integrals(pref = "2")
+
+# plt.plot(eul_1.I_f_arr, label='I_f')
+# plt.legend()
+# plt.show()
+# plt.plot(eul_1.I_g_arr, label='I_g')
+# plt.legend()
+# plt.show()
+# plt.plot(eul_1.I_g_prime_arr, label='I_g_prime')
+# plt.legend()
+# plt.show()
 
 
 c1 = -10
