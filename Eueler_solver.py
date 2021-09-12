@@ -125,20 +125,36 @@ def z_i(x, y, i, gen):
     return alpha1 * gen.interpolated_psi_k(x+a*i) + alpha2 * gen.interpolated_psi_k(y+a*i)
 
 
+def x_low_z_q(z_q, q):
+    if z_q < gen.psi_k(q*a) * (alpha1 + alpha2) + alpha2:
+        return 0
+    return gen.backward_psi_k((z_q-alpha2*(gen.psi_k(q*a)+1))/alpha1) - q*a
+
+
+def x_high_z_q(z_q, q):
+    if z_q < gen.psi_k(q*a) * (alpha1 + alpha2) + alpha1:
+        return gen.backward_psi_k((z_q-alpha2*(gen.psi_k(q*a)))/alpha1) - q*a
+    return 1
+
+
 def y_multi_dim(x, z_i, i, gen):
     return gen.backward_psi_k((z_i - alpha1*gen.interpolated_psi_k(x+a*i)) / alpha2) - i*a
 
 
-def z_l(x, z_q, l, q, gen):
+def z_l(x, z_q, q, l, gen):
     return z_i(x, y_multi_dim(x, z_q, q, gen), l, gen)
 
 
-def dzl_dzq(x,z_q, l, q, gen):
+def delta_z_ql(x, z_q, q, l, gen):
+    return z_l(x, z_q, q, l, gen) - z_q
+
+
+def dzl_dzq(x,z_q, q, l, gen):
     return alpha2*gen.interpolated_psi_k_prime(y_multi_dim(x, z_q, q, gen) + l*a) / r_multi_dim(x, z_q, q, gen)
 
 
 def r_multi_dim(x, z_q, q, gen):
-    return alpha2*gen.interpolated_psi_k_prime( y_multi_dim(x,z_q, q, gen) )
+    return alpha2*gen.interpolated_psi_k_prime( y_multi_dim(x, z_q, q, gen) )
 
 
 def B(x, z_q, q, l, gen):
@@ -157,6 +173,35 @@ def dB_dzq(x, z_q, q, l, gen):
     y_prime2_q_term = alpha2*gen.interpolated_psi_k_prime2(y_arg + q*a)
     y_prime2_l_term = alpha2*gen.interpolated_psi_k_prime2(y_arg + l*a)
     return (y_prime_q_term*y_prime2_l_term + y_prime2_q_term*y_prime_l_term) / r_multi_dim(x, z_q, q, gen)
+
+
+def right_side(x, y):
+    return math.sin(math.pi*x) * math.sin(math.pi*y)
+
+
+def F_q_before_integr(x, z_q, q):
+    return right_side(x, y_multi_dim(x, z_q, q, gen)/r_multi_dim(x, z_q, q, gen))
+
+
+def F_q(z_q, q):
+    x_min, x_max = x_low_z_q(z_q, q), x_high_z_q(z_q, q)
+    return I_from_func_adap(F_q_before_integr, x_min, x_max, 10**-2)
+
+
+def I_B_before_integr(x, z_q, q, l, n):
+    return delta_z_ql(x, z_q, q, l, gen)**n * dzl_dzq(x, z_q, q, l, gen) * B(x, z_q, q, l, gen) / r_multi_dim(x, z_q, q, gen)
+
+
+def I_B(z_q, q, l, n):
+    return I_from_func_adap(I_B_before_integr, x_low_z_q(z_q, q), x_high_z_q(z_q, q), 10**-2)
+
+
+def I_dB_before_integr(x, z_q, q, l, n):
+    return delta_z_ql(x, z_q, q, l, gen)**n * dB_dzq(x, z_q, q, l, gen) / r_multi_dim(x, z_q, q, gen)
+
+
+def I_dB(z_q, q, l, n):
+    return I_from_func_adap(I_dB_before_integr, x_low_z_q(z_q, q), x_high_z_q(z_q, q), 10**-2)
 
 
 class Euler_1:
