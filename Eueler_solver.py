@@ -125,40 +125,84 @@ def z_i(x, y, i, gen):
     return alpha1 * gen.interpolated_psi_k(x+a*i) + alpha2 * gen.interpolated_psi_k(y+a*i)
 
 
-def x_low_z_q(z_q, q):
+def z_tilda_i(x, y, i, gen):
+    return z_i(x, y, i, gen) - (alpha1 + alpha2)*(gen.interpolated_psi_k(a*i))
+
+
+def x_low_z_q(z_q, q, gen):
     if z_q < gen.psi_k(q*a) * (alpha1 + alpha2) + alpha2:
         return 0
     return gen.backward_psi_k((z_q-alpha2*(gen.psi_k(q*a)+1))/alpha1) - q*a
 
 
-def x_high_z_q(z_q, q):
+def x_high_z_q(z_q, q, gen):
     if z_q < gen.psi_k(q*a) * (alpha1 + alpha2) + alpha1:
         return gen.backward_psi_k((z_q-alpha2*(gen.psi_k(q*a)))/alpha1) - q*a
     return 1
 
 
-def y_multi_dim(x, z_i, i, gen):
+def x_low_z_tilda_q(z_tilda_q, q, gen):
+    if z_tilda_q < alpha2:
+        return 0
+    return gen.backward_psi_k(z_tilda_q / alpha1 + gen.psi_k(q*a)) - q*a
+
+
+def x_high_z_tilda_q(z_tilda_q, q, gen):
+    if z_tilda_q > alpha1:
+        return 1
+    return gen.backward_psi_k((z_tilda_q - alpha2) / alpha1 + gen.psi_k(q*a)) - q*a
+
+
+def y_z_q(x, z_i, i, gen):
     return gen.backward_psi_k((z_i - alpha1*gen.interpolated_psi_k(x+a*i)) / alpha2) - i*a
 
 
+def z_i_z_tilda_i(z_tilda_i, i, gen):
+    return z_tilda_i + (alpha1 + alpha2)*gen.psi_k(i*a)
+
+
+def z_tilda_i_z_i(z_i, i, gen):
+    return z_i - (alpha1 + alpha2)*gen.psi_k(i*a)
+
+
+def y_z_tilda_q(x, z_tilda_q, q, gen):
+    return y_z_q(x, z_i_z_tilda_i(z_tilda_q, q, gen), q, gen)
+
+
 def z_l(x, z_q, q, l, gen):
-    return z_i(x, y_multi_dim(x, z_q, q, gen), l, gen)
+    return z_i(x, y_z_q(x, z_q, q, gen), l, gen)
+
+
+def z_tilda_l(x, z_tilda_q, q, l, gen):
+    return z_tilda_i_z_i(z_l(x, z_i_z_tilda_i(z_tilda_q, q, gen), q, l, gen), l, gen)
 
 
 def delta_z_ql(x, z_q, q, l, gen):
     return z_l(x, z_q, q, l, gen) - z_q
 
 
-def dzl_dzq(x,z_q, q, l, gen):
-    return alpha2*gen.interpolated_psi_k_prime(y_multi_dim(x, z_q, q, gen) + l*a) / r_multi_dim(x, z_q, q, gen)
+def delta_z_tilda_ql(x, z_tilda_q, q, l, gen):
+    return z_tilda_l(x, z_tilda_q, q, l, gen) - z_tilda_q
 
 
-def r_multi_dim(x, z_q, q, gen):
-    return alpha2*gen.interpolated_psi_k_prime( y_multi_dim(x, z_q, q, gen) )
+def r_z_q(x, z_q, q, gen):
+    return alpha2*gen.interpolated_psi_k_prime( y_z_q(x, z_q, q, gen) )
 
 
-def B(x, z_q, q, l, gen):
-    y_arg = y_multi_dim(x, z_q, q, gen)
+def dzl_dzq(x, z_q, q, l, gen):
+    return alpha2*gen.interpolated_psi_k_prime(y_z_q(x, z_q, q, gen) + l*a) / r_z_q(x, z_q, q, gen)
+
+
+def r_z_tilda_q(x, z_tilda_q, q, gen):
+    return r_z_q(x, z_i_z_tilda_i(z_tilda_q, q, gen), q, gen)
+
+
+def dz_tilda_lq(x, z_tilda_q, q, l, gen):
+    return dzl_dzq(x, z_i_z_tilda_i(z_tilda_q, q, gen), q, l, gen)
+
+
+def B_z_q(x, z_q, q, l, gen):
+    y_arg = y_z_q(x, z_q, q, gen)
     x_q_term = alpha1*gen.interpolated_psi_k_prime(x + q*a)
     x_l_term = alpha1*gen.interpolated_psi_k_prime(x + l*a)
     y_q_term = alpha2*gen.interpolated_psi_k_prime(y_arg + q*a)
@@ -166,42 +210,111 @@ def B(x, z_q, q, l, gen):
     return x_q_term*x_l_term + y_q_term*y_l_term
 
 
+def B_z_tilda_q(x, z_tilda_q, q, l, gen):
+    return B_z_q(x, z_i_z_tilda_i(z_tilda_q, q, gen), q, l, gen)
+
+
 def dB_dzq(x, z_q, q, l, gen):
-    y_arg = y_multi_dim(x, z_q, q, gen)
+    y_arg = y_z_q(x, z_q, q, gen)
     y_prime_q_term = alpha2*gen.interpolated_psi_k_prime(y_arg + q*a)
     y_prime_l_term = alpha2*gen.interpolated_psi_k_prime(y_arg + l*a)
     y_prime2_q_term = alpha2*gen.interpolated_psi_k_prime2(y_arg + q*a)
     y_prime2_l_term = alpha2*gen.interpolated_psi_k_prime2(y_arg + l*a)
-    return (y_prime_q_term*y_prime2_l_term + y_prime2_q_term*y_prime_l_term) / r_multi_dim(x, z_q, q, gen)
+    return (y_prime_q_term*y_prime2_l_term + y_prime2_q_term*y_prime_l_term) / r_z_q(x, z_q, q, gen)
+
+
+def dB_dz_tilda_q(x, z_tilda_q, q, l, gen):
+    return dB_dzq(x, z_i_z_tilda_i(z_tilda_q, q, gen), q, l, gen)
 
 
 def right_side(x, y):
     return math.sin(math.pi*x) * math.sin(math.pi*y)
 
 
-def F_q_before_integr(x, z_q, q):
-    return right_side(x, y_multi_dim(x, z_q, q, gen)/r_multi_dim(x, z_q, q, gen))
+def F_q_before_integr(x, z_q, q, gen):
+    return right_side(x, y_z_q(x, z_q, q, gen) / r_z_q(x, z_q, q, gen))
 
 
-def F_q(z_q, q):
-    x_min, x_max = x_low_z_q(z_q, q), x_high_z_q(z_q, q)
+def F_tilda_q_before_integr(x, z_tilda_q, q, gen):
+    return F_q_before_integr(x, z_i_z_tilda_i(z_tilda_q, q, gen), q, gen)
+
+
+def F_q(z_q, q, gen):
+    x_min, x_max = x_low_z_q(z_q, q, gen), x_high_z_q(z_q, q, gen)
     return I_from_func_adap(F_q_before_integr, x_min, x_max, 10**-2)
 
 
-def I_B_before_integr(x, z_q, q, l, n):
-    return delta_z_ql(x, z_q, q, l, gen)**n * dzl_dzq(x, z_q, q, l, gen) * B(x, z_q, q, l, gen) / r_multi_dim(x, z_q, q, gen)
+def F_tilda_q(z_tilda_q, q, gen):
+    x_min, x_max = x_low_z_tilda_q(z_tilda_q, q, gen), x_high_z_tilda_q(z_tilda_q, q, gen)
+    return I_from_func_adap(F_tilda_q_before_integr, x_min, x_max, 10**-2)
 
 
-def I_B(z_q, q, l, n):
-    return I_from_func_adap(I_B_before_integr, x_low_z_q(z_q, q), x_high_z_q(z_q, q), 10**-2)
+def I_B_before_integr(x, z_q, q, l, n, gen):
+    return delta_z_ql(x, z_q, q, l, gen)**n * dzl_dzq(x, z_q, q, l, gen) * B_z_q(x, z_q, q, l, gen) / r_z_q(x, z_q, q, gen)
 
 
-def I_dB_before_integr(x, z_q, q, l, n):
-    return delta_z_ql(x, z_q, q, l, gen)**n * dB_dzq(x, z_q, q, l, gen) / r_multi_dim(x, z_q, q, gen)
+def I_B(z_q, q, l, n, gen):
+    def f_to_integr(x):
+        return I_B_before_integr(x, z_q, q, l, n, gen)
+
+    return I_from_func_adap(f_to_integr, x_low_z_q(z_q, q), x_high_z_q(z_q, q), 10**-2)
+
+
+def I_B_tilda(z_tilda_q, q, l, n, gen):
+    return I_B(z_i_z_tilda_i(z_tilda_q, q, gen), q, l, n, gen) 
+
+
+def I_dB_before_integr(x, z_q, q, l, n, gen):
+    return delta_z_ql(x, z_q, q, l, gen)**n * dB_dzq(x, z_q, q, l, gen) / r_z_q(x, z_q, q, gen)
 
 
 def I_dB(z_q, q, l, n):
-    return I_from_func_adap(I_dB_before_integr, x_low_z_q(z_q, q), x_high_z_q(z_q, q), 10**-2)
+    def f_to_integr(x):
+        return I_dB_before_integr(x, z_q, q, l, n, gen)
+
+    return I_from_func_adap(f_to_integr, x_low_z_q(z_q, q), x_high_z_q(z_q, q), 10**-2)
+
+
+def I_dB_tilda(z_tilda_q, q, l, n):
+    return I_dB(z_i_z_tilda_i(z_tilda_q, q, gen), q, l, n, gen)
+
+
+# cистема диффур
+a = 1/30
+N = 1
+z_tau = 10**-2
+q_max = 4
+
+def get_max_shift(N_):
+    max_pow = N_ + 2
+    return math.ceil(max_pow / 2)
+
+
+def deriv_coeff_num(N_):
+    return 2 * get_max_shift(N_) + 1
+
+
+deriv1_coeff_arr = np.array([1, 0, -1])
+deriv2_coeff_arr = np.array([1, -2, 1])
+deriv3_coeff_arr = np.array([1, -2, 0, 2, -1])*3/7
+
+
+def get_deriv_coeff(c_arr, alpha_i, max_shift):
+    return c_arr[max_shift - alpha_i]
+
+
+def get_phi_arr_size(z_tau_):
+    return math.ceil((alpha1 + alpha2)/z_tau_) + 1
+
+
+phi_arr = np.zeros([q_max+1, get_phi_arr_size(z_tau)])
+
+
+
+
+
+
+
 
 
 class Euler_1:
