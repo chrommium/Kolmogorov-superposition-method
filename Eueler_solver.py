@@ -268,22 +268,24 @@ def I_dB_before_integr(x, z_q, q, l, n, gen):
     return delta_z_ql(x, z_q, q, l, gen)**n * dB_dzq(x, z_q, q, l, gen) / r_z_q(x, z_q, q, gen)
 
 
-def I_dB(z_q, q, l, n):
+def I_dB(z_q, q, l, n, gen):
     def f_to_integr(x):
         return I_dB_before_integr(x, z_q, q, l, n, gen)
 
     return I_from_func_adap(f_to_integr, x_low_z_q(z_q, q), x_high_z_q(z_q, q), 10**-2)
 
 
-def I_dB_tilda(z_tilda_q, q, l, n):
+def I_dB_tilda(z_tilda_q, q, l, n, gen):
     return I_dB(z_i_z_tilda_i(z_tilda_q, q, gen), q, l, n, gen)
 
 
 # cистема диффур
 a = 1/30
 N = 1
+M = N+2
 z_tau = 10**-2
 q_max = 4
+tau_star = z_tau*(q_max+1)/(q_max-1)
 
 def get_max_shift(N_):
     max_pow = N_ + 2
@@ -297,10 +299,15 @@ def deriv_coeff_num(N_):
 deriv1_coeff_arr = np.array([1, 0, -1])
 deriv2_coeff_arr = np.array([1, -2, 1])
 deriv3_coeff_arr = np.array([1, -2, 0, 2, -1])*3/7
+all_deriv_coeff_arr = [deriv1_coeff_arr, deriv2_coeff_arr, deriv3_coeff_arr]
 
 
-def get_deriv_coeff(c_arr, alpha_i, max_shift):
-    return c_arr[max_shift - alpha_i]
+def get_deriv_coeff(c_arr, beta_i, max_shift):
+    return c_arr[max_shift - beta_i]
+
+
+def get_deriv_coeff_arr(n):
+    return all_deriv_coeff_arr[n-1]
 
 
 def get_phi_arr_size(z_tau_):
@@ -310,11 +317,108 @@ def get_phi_arr_size(z_tau_):
 phi_arr = np.zeros([q_max+1, get_phi_arr_size(z_tau)])
 
 
+def eq_right_side(nhu, q, gen):
+    if nhu < get_max_shift(N):
+        raise Exception('слишком малое nhu')
+    res = 0
+    for l in range(q_max+1):
+        for n in range(N+1):
+            hight_coeff = I_B_tilda(nhu*z_tau, q, l, n, gen) / math.factorial(n)
+            low_coeff = I_dB_tilda(nhu*z_tau, q, l, n, gen) / math.factorial(n)
+            max_j = get_max_shift(n+2)
+            if n == N:
+                max_j-=1
+            
+            for j in range(-get_max_shift(n+2), max_j+1):
+                res+=get_deriv_coeff(get_deriv_coeff_arr[n+2], j, get_max_shift(n+2)) * phi_arr[l, nhu+j] * hight_coeff / tau_star**(n+2)
+            
+            for j in range(-get_max_shift(n+1), get_max_shift(n+1)+1):
+                res+=get_deriv_coeff(get_deriv_coeff_arr[n+1], j, get_max_shift(n+1)) * phi_arr[l, nhu+j] * low_coeff / tau_star**(n+1)
+    return -res
 
 
+def eq_ql_term(nhu, q, l, gen):
+    deriv_coeff = get_deriv_coeff(get_deriv_coeff_arr(N+2), get_max_shift(N+2), get_max_shift(N+2))
+    deriv_coeff /= tau_star**(N+2)
+    return deriv_coeff * I_dB_tilda(nhu*z_tau, q, l, N+2, gen) / math.factorial(N)
 
 
+def get_A_matrix(nhu, gen):
+    A_matr = np.zeros([q_max+1, q_max+1])
+    for i in range(q_max+1):
+        for j in range(q_max+1):
+            A_matr[i, j] = eq_ql_term(nhu, i, j, gen)
+    return A_matr
 
+
+def R_vect(nhu, gen):
+    R_v = np.zeros(q_max+1)
+    for i in range(q_max+1):
+        R_v[i] = eq_right_side(nhu, i, gen)
+    return R_v
+
+
+def calc_phi_vect(nhu, gen):
+    return np.linalg.inv(get_A_matrix(nhu, gen)).dot(R_vect(nhu, gen))
+
+
+def boundary_right_side(x, nhu, q, gen):
+    if nhu < get_max_shift(N):
+        raise Exception('слишком малое nhu')
+    a = (q+1)%(q_max+1)
+    b = (q+2)%(q_max+1)
+    res = 0
+    for l in range(q_max+1):
+        for n in range(M+1):
+            max_j = get_max_shift(n)
+            d = delta_z_tilda_ql(x, z_tau*nhu, q, l, gen)
+            coef = (d**n) / math.factorial(n)
+            if n == M and (l == a or l == b):
+                max_j-=1
+            for j in range(-get_max_shift(n), max_j+1):
+                res+=get_deriv_coeff(get_deriv_coeff_arr[n], j, get_max_shift(n)) * phi_arr[l, nhu+j] * coef / tau_star**(n)
+    return -res
+
+
+def boundary_ab_term(x, nhu, q_special, ab, gen):
+    deriv_coeff = get_deriv_coeff(get_deriv_coeff_arr(M), get_max_shift(M), get_max_shift(M))
+    d = delta_z_tilda_ql(x, z_tau*nhu, q_special, ab, gen)
+    coef = (d**M) / math.factorial(M)
+    return deriv_coeff * coef / tau_star**(M)
+
+
+def elaborate_boundary(nhu, q_special, gen):
+    A_matr = np.zeros([2, 2])
+    shift_ = get_max_shift(M)
+    z_tilda_ = (nhu + shift_)*z_tau
+    x_min_ = x_low_z_tilda_q(z_tilda_, q_special, gen)
+    x_max_ = x_high_z_tilda_q(z_tilda_, q_special, gen)
+    a = (q_special+1)%(q_max+1)
+    b = (q_special+2)%(q_max+1)
+    
+    A_matr[0, 0] = boundary_ab_term(x_min_, nhu, q_special, a, gen)
+    A_matr[0, 1] = boundary_ab_term(x_min_, nhu, q_special, b, gen)
+    A_matr[1, 0] = boundary_ab_term(x_max_, nhu, q_special, a, gen)
+    A_matr[1, 1] = boundary_ab_term(x_max_, nhu, q_special, b, gen)
+    boundary_R_vect = np.zeros(2)
+    boundary_R_vect[0] = boundary_right_side(x_min_, nhu, q_special, gen)
+    boundary_R_vect[1] = boundary_right_side(x_max_, nhu, q_special, gen)
+    AB_vect = np.linalg.inv(A_matr).dot(boundary_R_vect)
+    phi_arr[a, nhu + shift_] = AB_vect[0]
+    phi_arr[b, nhu + shift_] = AB_vect[1]
+
+
+def one_step(nhu, q_special, gen):
+    phi_arr[nhu, :] = calc_phi_vect(nhu, gen)
+    elaborate_boundary(nhu, q_special, gen)
+    new_q_special = (q_special + 1)%(q_max + 1)
+    return new_q_special
+
+
+# TODO: задаем начальные условия внутри phi_arr
+# запускаем в цикле one_step (это один выстрел)
+# смотрим, что получилось на правом краю, корректируем нач условия
+# и снова стреляем, пока не получится на правом краю то, что надо 
 
 
 class Euler_1:
